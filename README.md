@@ -7,6 +7,7 @@ To use the plugin on your own machine with Revit installed, you are going to nee
 
 1. Copy the BDE.addin file from the project folder  (should be something like "PROJECT_ROOT_FOLDER\BDE_Revit_Addin\BDE.addin") into the Revit Addins Folder on your machine (should be something like "C:\Users\{USERNAME}\AppData\Roaming\Autodesk\Revit\Addins\2017")
 2. Change the <Assembly> file path in BDE.addin to point to the location of the BDE_Revit_Addin.dll file in the Debug (should look like <Assembly>C:\..\PROJECT_ROOT_FOLDER\BDE_Revit_Addin\BDE_Revit_Addin\bin\Debug\BDE_Revit_Addin.dll</Assembly>)
+3. Startup Revit.exe of external program by click "Project" -> "BDE_Revit_Addin attribute" _> "Debug" -> "Enable External Program" -> setup the path such like  "C:\Program Files\Autodesk\Revit 2017\Revit.exe". 
 
 ## Contributing
 
