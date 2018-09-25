@@ -23,6 +23,13 @@ namespace BDE
             XLocation = lp.X;
             YLocation = lp.Y;
             ZLocation = lp.Z;
+            Parameter mark = fi.LookupParameter("Mark");
+            Mark = mark.AsString();
+        }
+
+        public string Mark
+        {
+            get; private set;
         }
 
         /*
@@ -200,6 +207,7 @@ namespace BDE
             properties.Add("Element Id", ElementId);
             properties.Add("Level", Level);
             properties.Add("GUID", GUID);
+            properties.Add("Mark", Mark);
 
             var feature = new Feature(BeaconCoordinates, properties);
             return feature;

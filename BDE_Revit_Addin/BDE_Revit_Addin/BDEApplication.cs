@@ -166,7 +166,15 @@ namespace BDE
                     XYZ revitXYZ = new XYZ(lp.Point.X, lp.Point.Y, lp.Point.Z);
 
                     // Create a new beacon and add it to the feature collection as a feature
-                    featuresForLaserPointer.Features.Add(new LBeacon(fi, revitXYZ, level).ToGeoJSONFeature());
+                    LBeacon beacon = new LBeacon(fi, revitXYZ, level);
+                    featuresForLaserPointer.Features.Add(beacon.ToGeoJSONFeature());
+
+                    using (Transaction t = new Transaction(doc, "TextNote"))
+                    {
+                        t.Start("Create");
+                        TextNote.Create(doc, uidoc.ActiveView.Id, revitXYZ, beacon.Mark, doc.GetDefaultElementTypeId(ElementTypeGroup.TextNoteType));
+                        t.Commit();
+                    }
 
                     if (fi.Name != "LaserPointer")
                     {
