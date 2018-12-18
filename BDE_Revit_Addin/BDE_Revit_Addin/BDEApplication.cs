@@ -25,14 +25,12 @@ using System.IO;
 using System.Reflection;
 using System.Windows;
 using System.Windows.Media.Imaging;
+using System.Xml;
 
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.Attributes;
-
-using Newtonsoft.Json;
-using GeoJSON.Net.Feature;
 
 namespace BDE
 {
@@ -128,30 +126,11 @@ namespace BDE
             double projectLongitude = site.Longitude / angleRatio;
             double projectLatitude = site.Latitude / angleRatio;
 
-            // Store the output data on desktop
-            string pathLBeacon = Environment.GetFolderPath(Environment.SpecialFolder.Desktop)
-                + "\\"
-                + doc.Title.Remove(doc.Title.Length - 4)
-                + "_ForLBeacon"
-                + ".json";
+            // Store the output data 
+            string pathLBeacon = doc.PathName.Remove(doc.PathName.Length - 4) + ".xml";
 
-            // Store the output data on desktop
-            string pathLaserPointer = Environment.GetFolderPath(Environment.SpecialFolder.Desktop)
-                + "\\"
-                + doc.Title.Remove(doc.Title.Length - 4)
-                + "_ForLaserPointer"
-                + ".json";
-
-            // Create a new feature collections object, beacons will be represented by features
-            FeatureCollection featuresForLBeacon = new FeatureCollection();
-
-            // Create a new feature collections object, beacons and laser pointers will be represented by features
-            FeatureCollection featuresForLaserPointer = new FeatureCollection();
-
-            // Set origin point for Laser pointer
-            // Origin point also known as Reference Point or Startup Location,
-            // which is the internal project origin and fixed on the plate. 
-            featuresForLaserPointer.Features.Add(LBeacon.setOriginPointToGeoJSON(0, 0, 0));
+            // Create a new list of LBeacons
+            List<LBeacon> LBeacons = new List<LBeacon>();
 
             foreach (Reference r in sel)
             {
@@ -167,7 +146,6 @@ namespace BDE
 
                     // Create a new beacon and add it to the feature collection as a feature
                     LBeacon beacon = new LBeacon(fi, revitXYZ, level);
-                    featuresForLaserPointer.Features.Add(beacon.ToGeoJSONFeature());
 
                     using (Transaction t = new Transaction(doc, "TextNote"))
                     {
@@ -176,27 +154,26 @@ namespace BDE
                         t.Commit();
                     }
 
-                    if (fi.Name != "LaserPointer")
-                    {
-                        // Translate the Revit coordinate to Real World coordinate
-                        Transform TrueNorthTransform = GetTrueNorthTransform(doc);
-                        XYZ TrueNorthCoordinates = TrueNorthTransform.OfPoint(lp.Point);
+                    // Translate the Revit coordinate to Real World coordinate
+                    Transform TrueNorthTransform = GetTrueNorthTransform(doc);
+                    XYZ TrueNorthCoordinates = TrueNorthTransform.OfPoint(lp.Point);
 
-                        // Convert feet to meter(Revit coordinate system unit is feet.)
-                        double xMeter = Utilities.feetToMeters(TrueNorthCoordinates.X);
-                        double yMeter = Utilities.feetToMeters(TrueNorthCoordinates.Y);
-                        double zMeter = Utilities.feetToMeters(TrueNorthCoordinates.Z);
+                    // Convert feet to meter(Revit coordinate system unit is feet.)
+                    double xMeter = Utilities.feetToMeters(TrueNorthCoordinates.X);
+                    double yMeter = Utilities.feetToMeters(TrueNorthCoordinates.Y);
+                    double zMeter = Utilities.feetToMeters(TrueNorthCoordinates.Z);
 
-                        // Create new latitude/longitude
-                        double newLatitude = projectLatitude + Utilities.MeterToDecimalDegress(yMeter);
-                        double newLongitude = projectLongitude + Utilities.MeterToDecimalDegress(xMeter);
+                    // Create new latitude/longitude
+                    double newLatitude = projectLatitude + Utilities.MeterToDecimalDegress(yMeter);
+                    double newLongitude = projectLongitude + Utilities.MeterToDecimalDegress(xMeter);
 
-                        // Create a new XYZ for LBeacon using in real-world map
-                        XYZ geoXYZ = new XYZ(newLongitude, newLatitude, zMeter);
+                    // Create a new XYZ for LBeacon using in real-world map
+                    XYZ geoXYZ = new XYZ(newLongitude, newLatitude, zMeter);
 
-                        // Create a new beacon and add it to the feature collection as a feature
-                        featuresForLBeacon.Features.Add(new LBeacon(fi, geoXYZ, level).ToGeoJSONFeature());
-                    }
+                    // Create a new beacon and add it to the feature collection as a feature
+                    LBeacons.Add(new LBeacon(fi, geoXYZ, level));
+
+                    WriteXml(LBeacons, pathLBeacon);
                 }
                 catch (Exception e)
                 {
@@ -204,29 +181,30 @@ namespace BDE
                 }
             }
 
-            //Overwrite the original file if action is duplicated
-            using (StreamWriter sw = new StreamWriter(pathLBeacon, false))
-            {
-                // Convert the features collection to GeoJSON and output to external file
-                sw.WriteLine(JsonConvert.SerializeObject(featuresForLBeacon));
-            }
-
-            //Overwrite the original file if action is duplicated
-            using (StreamWriter sw = new StreamWriter(pathLaserPointer, false))
-            {
-                // Convert the features collection to GeoJSON and output to external file
-                sw.WriteLine(JsonConvert.SerializeObject(featuresForLaserPointer));
-            }
             return Result.Succeeded;
         }
 
-        Transform GetTrueNorthTransform(Document doc)
+        private Transform GetTrueNorthTransform(Document doc)
         {
             ProjectPosition projectPosition = doc.ActiveProjectLocation.get_ProjectPosition(XYZ.Zero);
 
             Transform rotationTransform = Transform.CreateRotation(XYZ.BasisZ, projectPosition.Angle);
 
             return rotationTransform;
+        }
+
+        private void WriteXml(List<LBeacon> LBeacons, string path)
+        {
+            XmlDocument xmlDocument = new XmlDocument();
+            XmlElement building = xmlDocument.CreateElement("Building");
+            xmlDocument.AppendChild(building);
+            XmlElement region = xmlDocument.CreateElement("region");
+            building.AppendChild(region);
+            foreach (LBeacon beacon in LBeacons)
+            {
+                region.AppendChild(beacon.ToXmlElement(xmlDocument));
+            }
+            xmlDocument.Save(path);
         }
     }
 }

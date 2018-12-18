@@ -1,13 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using Autodesk.Revit.DB;
-using GeoJSON.Net.Geometry;
-using GeoJSON.Net.Feature;
-using Point = GeoJSON.Net.Geometry.Point;
+using System.Xml;
 
 namespace BDE
 {
-    class LBeacon
+    public class LBeacon
     {
         /*
          * Initialize beacon object from FamilyInstance and LocationPoint
@@ -18,13 +16,17 @@ namespace BDE
             CategoryName = fi.Category.Name;
             BeaconType = fi.Name;
             ElementId = fi.Id;
-            GUID = Guid.NewGuid().ToString();
             Level = level.Name;
             XLocation = lp.X;
             YLocation = lp.Y;
-            ZLocation = lp.Z;
-            Parameter mark = fi.LookupParameter("Mark");
-            Mark = mark.AsString();
+            ZLocation = Convert.ToSingle(level.Name.Remove(level.Name.Length - 1));
+            Mark = fi.LookupParameter("Mark").AsString();
+            GUID = Converter.ToUUID(this);
+        }
+
+        public string Region
+        {
+            get; private set;
         }
 
         public string Mark
@@ -180,62 +182,25 @@ namespace BDE
         /*
          * Getter for beacon's z location coordinate
          */
-        public double ZLocation
+        public float ZLocation
         {
             get; private set;
         }
 
         /*
-         * Getter for a beacon's coordinates in Point format
-         * Geographic Position seems to use Y,X,Z format so change accordingly
+         * Xml Representation of a beacon
          */
-        public Point BeaconCoordinates
+        public XmlElement ToXmlElement(XmlDocument xml)
         {
-            get
-            {
-                return new Point(new GeographicPosition(YLocation, XLocation, ZLocation));
-            }
+            XmlElement node = xml.CreateElement("node");
+            node.SetAttribute("id", this.GUID);
+            node.SetAttribute("name", this.Mark);
+            node.SetAttribute("region", this.Region);
+            node.SetAttribute("lat", this.YLocation.ToString("##.000000"));
+            node.SetAttribute("lon", this.XLocation.ToString("##.000000"));
+            node.SetAttribute("elevation", this.Level);
+            return node;
         }
 
-        /*
-         * GeoJSON Feature Representation of a beacon
-         */
-        public Feature ToGeoJSONFeature()
-        {
-            var properties = new Dictionary<String, object>();
-            properties.Add("Type", BeaconType);
-            properties.Add("Element Id", ElementId);
-            properties.Add("Level", Level);
-            properties.Add("GUID", GUID);
-            properties.Add("Mark", Mark);
-
-            var feature = new Feature(BeaconCoordinates, properties);
-            return feature;
-        }
-
-        /*
-        * Set origin point of the buliding to geojson
-        */
-        public static Feature setOriginPointToGeoJSON(double latitude, double longitude, double altitude)
-        {
-            var properties = new Dictionary<String, object>();
-            properties.Add("Origin Point", "OriginPoint");
-            Point OriginCoordinate = new Point(new GeographicPosition(latitude, longitude, altitude));
-
-            var feature = new Feature(OriginCoordinate, properties);
-            return feature;
-        }
-
-        /*
-         * Simple string representation of a beacon
-         */
-        public String toString()
-        {
-            return "Category: " + CategoryName +
-                ", Beacon Type: " + BeaconType +
-                ", Level: " + Level +
-                ", GUID: " + GUID +
-                ", (" + XLocation + "," + YLocation + "," + ZLocation + ")\n";
-        }
     }
 }
