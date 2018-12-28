@@ -85,6 +85,8 @@ namespace BDE
     [Transaction(TransactionMode.Manual)]
     public class XYZFamily : IExternalCommand
     {
+        public List<LBeacon> LBeacons { get; set; }
+
         public class FamilyFilter : ISelectionFilter //implement filter
         {
             bool ISelectionFilter.AllowElement(Element elem)
@@ -130,7 +132,7 @@ namespace BDE
             string pathLBeacon = doc.PathName.Remove(doc.PathName.Length - 4) + ".xml";
 
             // Create a new list of LBeacons
-            List<LBeacon> LBeacons = new List<LBeacon>();
+            LBeacons = new List<LBeacon>();
 
             foreach (Reference r in sel)
             {
@@ -172,8 +174,10 @@ namespace BDE
 
                     // Create a new beacon and add it to the feature collection as a feature
                     LBeacons.Add(new LBeacon(fi, geoXYZ, level));
-
-                    WriteXml(LBeacons, pathLBeacon);
+                    ReNameNeighbor();
+                    LBeacons.Sort((x, y) => { return x.ZLocation.CompareTo(y.ZLocation); });
+                    
+                    WriteXml(pathLBeacon, doc.Title);
                 }
                 catch (Exception e)
                 {
@@ -193,16 +197,35 @@ namespace BDE
             return rotationTransform;
         }
 
-        private void WriteXml(List<LBeacon> LBeacons, string path)
+        private void ReNameNeighbor()
+        {
+            for (int i = 0; i < LBeacons.Count; i++)
+            {
+                for (int j = 0; j < LBeacons[i].Neighbor.Length; j++)
+                {
+                    foreach (LBeacon other in LBeacons)
+                    {
+                        if (LBeacons[i].Neighbor[j] == other.Mark)
+                        {
+                            LBeacons[i].Neighbor[j] = other.UUID;
+                        }
+                    }
+                }
+            }
+        }
+
+        private void WriteXml(string path, string buildingName)
         {
             XmlDocument xmlDocument = new XmlDocument();
             XmlElement building = xmlDocument.CreateElement("Building");
+            building.SetAttribute("name", buildingName);
             xmlDocument.AppendChild(building);
             XmlElement region = xmlDocument.CreateElement("region");
             building.AppendChild(region);
             foreach (LBeacon beacon in LBeacons)
             {
-                region.AppendChild(beacon.ToXmlElement(xmlDocument));
+                region.AppendChild(beacon.ToXmlElement(xmlDocument, ""));
+                building.AppendChild(beacon.ToXmlElement(xmlDocument));
             }
             xmlDocument.Save(path);
         }

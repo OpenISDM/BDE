@@ -19,9 +19,22 @@ namespace BDE
             Level = level.Name;
             XLocation = lp.X;
             YLocation = lp.Y;
-            ZLocation = Convert.ToSingle(level.Name.Remove(level.Name.Length - 1));
+            ZLocation = 0;
+            //ZLocation = Convert.ToSingle(level.Name);
             Mark = fi.LookupParameter("Mark").AsString();
-            GUID = Converter.ToUUID(this);
+            NodeType = fi.LookupParameter("NodeType").AsString();
+            Neighbor = fi.LookupParameter("Neighbor").AsString().Split('/');
+            UUID = Converter.ToUUID(this).ToUpper();
+        }
+
+        public string NodeType
+        {
+            get; private set;
+        }
+
+        public string[] Neighbor
+        {
+            get; private set;
         }
 
         public string Region
@@ -86,7 +99,7 @@ namespace BDE
         /*
         * Getter for beacon's GUID
         */
-        public String GUID
+        public String UUID
         {
             get; private set;
         }
@@ -190,14 +203,32 @@ namespace BDE
         /*
          * Xml Representation of a beacon
          */
+        public XmlElement ToXmlElement(XmlDocument xml, string category)
+        {
+            XmlElement node = xml.CreateElement("node");
+            node.SetAttribute("id", this.UUID);
+            node.SetAttribute("name", this.Mark);
+            node.SetAttribute("region", this.Region);
+            node.SetAttribute("category", category);
+            return node;
+        }
+
         public XmlElement ToXmlElement(XmlDocument xml)
         {
             XmlElement node = xml.CreateElement("node");
-            node.SetAttribute("id", this.GUID);
+            node.SetAttribute("id", this.UUID);
             node.SetAttribute("name", this.Mark);
             node.SetAttribute("region", this.Region);
             node.SetAttribute("lat", this.YLocation.ToString("##.000000"));
             node.SetAttribute("lon", this.XLocation.ToString("##.000000"));
+            for (int i = 0; i < this.Neighbor.Length - 1; i++)
+            {
+                node.SetAttribute("neighbor" + (i + 1).ToString(), this.Neighbor[i]);
+            }
+            node.SetAttribute("category", "");
+            node.SetAttribute("nodeType", this.NodeType);
+            node.SetAttribute("connectPointID", "");
+            node.SetAttribute("groupID", "");
             node.SetAttribute("elevation", this.Level);
             return node;
         }
